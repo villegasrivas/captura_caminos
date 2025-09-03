@@ -2,7 +2,7 @@ const CACHE = 'captura-v1';
 const ASSETS = [
   './',
   './index.html',
-  './mapa_captura_caminos_v6.html',  // <-- tu HTML real
+  './mapa_v6.html',  // <-- tu HTML real
   './captura_app_v6.js',              // <-- tu JS real
   './manifest.json'
 ];
@@ -27,3 +27,4 @@ self.addEventListener('fetch', e => {
   // Resto: network-first
   e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
+
