@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Captura en terreno</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('./service-worker.js');
+      });
+    }
+  </script>
+  <style>
+    html,body{height:100%;margin:0}
+    .wrap{position:fixed;inset:0}
+    iframe{border:0;width:100%;height:100%}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <iframe src="mapa_captura_caminos_v6.html" title="Mapa captura"></iframe>
+  </div>
+</body>
+</html>
