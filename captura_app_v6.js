@@ -1,3 +1,23 @@
+// Cargar Google Identity Services
+(function loadGIS(){
+  var s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+  document.head.appendChild(s);
+})();
+
+var idToken = null; // se llenara al iniciar sesion
+var GOOGLE_CLIENT_ID = 'TU_CLIENT_ID.apps.googleusercontent.com';
+
+function initGoogle(){
+  if (!window.google || !google.accounts || !google.accounts.id) return false;
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: function (resp) { idToken = resp.credential || null; }
+  });
+  return true;
+}
+
+
 // ================= captura_app.js (ASCII) =================
 (function(){
   function getCfg(){ return (window.CAPTURA_CFG||{}); }
@@ -265,3 +285,20 @@
     }; btnGPS.addTo(map);
   };
 })();
+
+// Boton Entrar (login) - opcional, aparece por si el servidor lo exige
+var btnLogin = L.control({position:'bottomleft'});
+btnLogin.onAdd = function(){
+  var d = L.DomUtil.create('div','leaflet-bar');
+  var a = L.DomUtil.create('a','neutral',d); a.href='#'; a.title='Entrar'; a.textContent='Entrar';
+  L.DomEvent.on(a,'click', function(ev){
+    L.DomEvent.stop(ev);
+    if (!initGoogle()){
+      alert('Cargando modulo de Google... intenta de nuevo en 2 segundos.');
+      return;
+    }
+    // muestra el prompt de Google (one-tap/popup)
+    google.accounts.id.prompt(); // esto abre el flujo de login; al terminar rellena idToken
+  });
+  return d;
+}; btnLogin.addTo(map);
