@@ -192,19 +192,25 @@ function initGoogle(){
           });
         })
         .then(function(sel){
-          return fetch(cfg.SCRIPT_URL, {
-            method:'POST',
-            headers:{'Content-Type':'text/plain;charset=utf-8'},
-            body: JSON.stringify({
-              featureCollection: fc,
-              attributes: {
-                identificacion: sel.quien,
-                tipo: sel.tipo,
-                dispositivo: navigator.userAgent,
-                enviado_en: new Date().toISOString()
-              }
-            })
-          }).then(function(resp){ return resp.text().then(function(text){ return {ok:resp.ok, text:text}; }); });
+          return fetch(
+  cfg.SCRIPT_URL + (idToken ? ('&id_token=' + encodeURIComponent(idToken)) : ''),
+  {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      featureCollection: fc,
+      attributes: {
+        identificacion: sel.quien,
+        tipo: sel.tipo,
+        dispositivo: navigator.userAgent,
+        enviado_en: new Date().toISOString()
+      }
+    })
+  }
+).then(function(resp){
+  return resp.text().then(function(text){ return {ok: resp.ok, text: text}; });
+});
+
         })
         .then(function(r){
           if(!r.ok) throw new Error(r.text || 'Error desconocido');
@@ -302,3 +308,4 @@ btnLogin.onAdd = function(){
   });
   return d;
 }; btnLogin.addTo(map);
+
