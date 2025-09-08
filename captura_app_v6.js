@@ -64,6 +64,14 @@ function initGoogle(){
     });
     map.pm.setGlobalOptions({ snappable:true, snapDistance:15, allowSelfIntersection:false });
 
+    // Cuando el usuario comienza a dibujar una nueva geometría,
+    // limpiamos cualquier resto anterior (evita que A se mezcle con B)
+    map.on('pm:drawstart', function () {
+      drawn.clearLayers();
+      lastDrawn = null;
+    });
+
+    
     // === SINCRONIZACIÓN DE DIBUJO/BORRADO (a prueba de balas) ===
     var lastDrawn = null;
 
@@ -218,18 +226,18 @@ function initGoogle(){
           map.pm.disableGlobalRemovalMode();
         }
 
-        // === SOLO GUARDAR LA ÚLTIMA GEOMETRÍA VISIBLE ===
-        var latest = null;
-        drawn.eachLayer(function(l){
-          if (map.hasLayer(l)) latest = l; // la última iterada es la más reciente visible
-        });
-        if (!latest) { alert('Dibuja algo antes de guardar'); return; }
+        // === SOLO GUARDAR LA ÚLTIMA GEOMETRÍA (sin recorrer grupos) ===
+        if (!lastDrawn || !map.hasLayer(lastDrawn)) {
+          alert('Dibuja algo antes de guardar');
+          return;
+        }
 
         var fc = {
           type: 'FeatureCollection',
-          features: [ latest.toGeoJSON() ]
+          features: [ lastDrawn.toGeoJSON() ]
         };
-        // ================================================
+// ===============================================================
+
 
         showSelectDialog('IDENTIFIQUESE', ['PDTI-Manio','PDT1-Nahuelbuta','PDTI-IMP_CEN_1','PDTI-IMP_CEN_2','PDTI-Boroa','PRODER','CAMINOS'])
         .then(function(quien){
@@ -353,3 +361,4 @@ function initGoogle(){
     }; btnLogin.addTo(map);
   };
 })();
+
