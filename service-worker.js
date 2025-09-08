@@ -1,4 +1,4 @@
-const CACHE = 'captura-v4';
+const CACHE = 'captura-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -27,6 +27,7 @@ self.addEventListener('fetch', e => {
   // Resto: network-first
   e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
+
 
 
 
