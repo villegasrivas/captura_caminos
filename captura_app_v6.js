@@ -72,6 +72,13 @@ function initGoogle(){
       drawn.addLayer(e.layer);  // ← agrega el nuevo
     });
 
+    // Cuando borres con la papelera, elimina también del grupo "drawn"
+    map.on('pm:remove', function(e){
+      if (drawn.hasLayer(e.layer)) {
+        drawn.removeLayer(e.layer);
+      }
+    });
+
 
     // 2) Overlay de reportes + filtros
     var PLAN_COLOR = '#f59e0b', EJEC_COLOR = '#16a34a', UNK_COLOR = '#6d28d9';
@@ -188,7 +195,13 @@ function initGoogle(){
       var a = L.DomUtil.create('a','primary',d); a.href='#'; a.title='Guardar'; a.textContent='Guardar';
       L.DomEvent.on(a,'click', function(ev){
         L.DomEvent.stop(ev);
-        var fc = drawn.toGeoJSON();
+
+        var layers = [];
+        drawn.eachLayer(function(l){
+          if (map.hasLayer(l)) layers.push(l); // evita “fantasmas” borrados
+        });
+        var fc = { type:'FeatureCollection', features: layers.map(function(l){ return l.toGeoJSON(); }) };
+        
         if(!fc.features.length){ alert('Dibuja algo antes de guardar'); return; }
         showSelectDialog('IDENTIFIQUESE', ['PDTI-Manio','PDT1-Nahuelbuta','PDTI-IMP_CEN_1','PDTI-IMP_CEN_2','PDTI-Boroa','PRODER','CAMINOS'])
         .then(function(quien){
@@ -313,5 +326,6 @@ btnLogin.onAdd = function(){
   });
   return d;
 }; btnLogin.addTo(map);
+
 
 
