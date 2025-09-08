@@ -247,10 +247,10 @@ function initGoogle(){
         })
         .then(function(sel){
           return fetch(
-            cfg.SCRIPT_URL + (idToken ? ('&id_token=' + encodeURIComponent(idToken)) : ''),
+            cfg.SCRIPT_URL + '?token=' + encodeURIComponent(cfg.TOKEN) + (idToken ? ('&id_token=' + encodeURIComponent(idToken)) : ''),
             {
               method:'POST',
-              headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+              headers:{ 'Content-Type':'application/json' },
               body: JSON.stringify({
                 featureCollection: fc,
                 attributes: {
@@ -361,4 +361,5 @@ function initGoogle(){
     }; btnLogin.addTo(map);
   };
 })();
+
 
