@@ -66,7 +66,12 @@ function initGoogle(){
       editMode:true, removalMode:true
     });
     map.pm.setGlobalOptions({ snappable:true, snapDistance:15, allowSelfIntersection:false });
-    map.on('pm:create', function(e){ drawn.addLayer(e.layer); });
+    // Solo una geometría a la vez: al crear, borra lo anterior
+    map.on('pm:create', function(e){
+      drawn.clearLayers();      // ← limpia dibujos previos
+      drawn.addLayer(e.layer);  // ← agrega el nuevo
+    });
+
 
     // 2) Overlay de reportes + filtros
     var PLAN_COLOR = '#f59e0b', EJEC_COLOR = '#16a34a', UNK_COLOR = '#6d28d9';
@@ -103,7 +108,7 @@ function initGoogle(){
                       (currentTipo==='Ejecutado' && t==='ejecutado');
         return okIdent && okTipo;
       });
-      var layer = L.geoJSON(filtered, { style: styByTipo, pointToLayer: mkPoint }).bindPopup(popupHtml);
+      var layer = L.geoJSON(filtered, { pmIgnore:true, style: styByTipo, pointToLayer: mkPoint }).bindPopup(popupHtml);
       reportesLayer.addLayer(layer);
       if(!reportesVisible) map.removeLayer(reportesLayer);
     }
@@ -308,4 +313,5 @@ btnLogin.onAdd = function(){
   });
   return d;
 }; btnLogin.addTo(map);
+
 
