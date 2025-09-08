@@ -13,14 +13,14 @@
   <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"/>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.min.js"></script>
 
-  <!-- jQuery (opcional, si realmente lo necesitas en otros scripts) -->
+  <!-- jQuery (opcional, solo si lo usas en otras funciones) -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
   <!-- Configuración de la app -->
   <script>
     window.CAPTURA_CFG = {
-      SCRIPT_URL: "TU_URL_APPS_SCRIPT",   // ← cambia esto por tu web app /exec
-      FEED_URL: "TU_URL_FEED_JSON",       // ← URL de datos GeoJSON en tu backend
+      SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxvMg7ayVENNsA0Icn6bre2_2XoSzRT1DixZkF7_f7lE0IEXZHnUNvVb6fjBsyz3FPnoQ/exec",
+      FEED_URL: "https://script.google.com/macros/s/AKfycbxvMg7ayVENNsA0Icn6bre2_2XoSzRT1DixZkF7_f7lE0IEXZHnUNvVb6fjBsyz3FPnoQ/exec?token=SIG_CAMINOS_V1&as=geojson",
       LINE_COLOR: "#2563eb",
       LINE_WEIGHT: 3,
       LINE_OPACITY: 0.8,
@@ -48,7 +48,7 @@
 
   <script>
     // Inicializar mapa base
-    var map = L.map('map').setView([-38.7, -72.6], 10); // 👈 ajusta a tu zona inicial
+    var map = L.map('map').setView([-38.7, -72.6], 10); // 👈 ajusta centro y zoom inicial
 
     // Capa de OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
