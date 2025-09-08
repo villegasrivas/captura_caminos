@@ -1,13 +1,11 @@
-// Cargar Google Identity Services
+// ================= Google Identity (preparado para futuro) =================
 (function loadGIS(){
   var s = document.createElement('script');
   s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
   document.head.appendChild(s);
 })();
-
-var idToken = null; // se llenara al iniciar sesion
+var idToken = null; // se llenará cuando activemos Google Sign-In
 var GOOGLE_CLIENT_ID = 'TU_CLIENT_ID.apps.googleusercontent.com';
-
 function initGoogle(){
   if (!window.google || !google.accounts || !google.accounts.id) return false;
   google.accounts.id.initialize({
@@ -17,8 +15,7 @@ function initGoogle(){
   return true;
 }
 
-
-// ================= captura_app.js (ASCII) =================
+// ================= captura_app_v6.js (ASCII) =================
 (function(){
   function getCfg(){ return (window.CAPTURA_CFG||{}); }
   function getBase(){
@@ -29,7 +26,7 @@ function initGoogle(){
   }
   function norm(s){ return (s||"").toString().trim().toLowerCase(); }
 
-  // API publica: R llama window.capturaAppInit(this);
+  // R llama window.capturaAppInit(this);
   window.capturaAppInit = function(map){
     var cfg  = getCfg();
     var BASE = getBase();
@@ -56,9 +53,8 @@ function initGoogle(){
       return div;
     }; legend.addTo(map);
 
-    // 1) Geoman minimo
+    // 1) Geoman mínimo
     var drawn = L.featureGroup().addTo(map);
-    var lastDrawn = null;
     map.pm.addControls({
       position:'topleft',
       drawMarker:true, drawPolyline:true,
@@ -68,7 +64,7 @@ function initGoogle(){
     });
     map.pm.setGlobalOptions({ snappable:true, snapDistance:15, allowSelfIntersection:false });
 
-    // === SINCRONIZACIÓN DE DIBUJO/BORRADO (reemplaza tus handlers actuales) ===
+    // === SINCRONIZACIÓN DE DIBUJO/BORRADO (a prueba de balas) ===
     var lastDrawn = null;
 
     // Al crear: una geometría por envío
@@ -89,16 +85,17 @@ function initGoogle(){
       if (lastDrawn === e.layer) lastDrawn = null;
     });
 
-    // Cuando se apaga/enciende el modo borrado global, al APAGARSE barremos fantasmas
+    // Al APAGAR el modo borrar, barremos “fantasmas” que no estén en el mapa
     map.on('pm:globalremovalmodetoggled', function(e){
       if (!e.enabled){
-        // limpiamos "drawn" de cualquier cosa que ya no está en el mapa
-        drawn.eachLayer(function(l){ if (!map.hasLayer(l)) drawn.removeLayer(l); });
+        var toRemove = [];
+        drawn.eachLayer(function(l){ if (!map.hasLayer(l)) toRemove.push(l); });
+        toRemove.forEach(function(l){ drawn.removeLayer(l); });
         if (lastDrawn && !map.hasLayer(lastDrawn)) lastDrawn = null;
       }
     });
+    // =============================================================
 
-    
     // 2) Overlay de reportes + filtros
     var PLAN_COLOR = '#f59e0b', EJEC_COLOR = '#16a34a', UNK_COLOR = '#6d28d9';
     var reportesLayer = L.layerGroup().addTo(map);
@@ -127,7 +124,7 @@ function initGoogle(){
       if(!geoCache) return;
       var filtered = JSON.parse(JSON.stringify(geoCache));
       filtered.features = (filtered.features||[]).filter(function(ft){
-        var okIdent = (currentIdent==='Todos') || ((ft.properties&&ft.properties.identificacion)||'' )=== currentIdent;
+        var okIdent = (currentIdent==='Todos') || (((ft.properties&&ft.properties.identificacion)||'' )=== currentIdent);
         var t = norm(ft.properties&&ft.properties.tipo);
         var okTipo  = (currentTipo==='Todos') ||
                       (currentTipo==='Planificado/Programado' && (t==='planificado' || t==='programado')) ||
@@ -149,7 +146,8 @@ function initGoogle(){
         return a.localeCompare(b, 'es');
       });
     }
-    // control de filtro
+
+    // control de filtro (arriba-derecha)
     var filterCtl = L.control({position:'topright'});
     filterCtl.onAdd = function(){
       var div = L.DomUtil.create('div','filter-box');
@@ -160,7 +158,7 @@ function initGoogle(){
       return div;
     };
     filterCtl.addTo(map);
-    // lo subimos arriba del selector de capas
+    // Subir por encima del selector de capas
     var wrap = filterCtl.getContainer();
     var tr = map._controlCorners && map._controlCorners['topright'];
     if (tr && wrap){ wrap.classList.add('filter-ctl'); tr.insertBefore(wrap, tr.firstChild); }
@@ -188,7 +186,7 @@ function initGoogle(){
     }
     cargarReportes();
 
-    // dialogo select reutilizable
+    // diálogo select reutilizable
     function showSelectDialog(title, options){
       return new Promise(function(resolve, reject){
         var overlay = document.createElement('div'); overlay.className='modal-overlay';
@@ -207,7 +205,7 @@ function initGoogle(){
       });
     }
 
-    // 3) Boton Guardar
+    // 3) Botón Guardar (sólo última geometría visible)
     var btnSave = L.control({position:'bottomleft'});
     btnSave.onAdd = function(){
       var d = L.DomUtil.create('div','leaflet-bar');
@@ -215,17 +213,24 @@ function initGoogle(){
       L.DomEvent.on(a,'click', function(ev){
         L.DomEvent.stop(ev);
 
-        var fc;
-        if (lastDrawn && map.hasLayer(lastDrawn)) {
-          fc = { type:'FeatureCollection', features: [ lastDrawn.toGeoJSON() ] };
-        } else {
-          var layers = [];
-          drawn.eachLayer(function(l){ if (map.hasLayer(l)) layers.push(l); });
-          fc = { type:'FeatureCollection', features: layers.map(function(l){ return l.toGeoJSON(); }) };
+        // Si quedó activo el modo borrar, apágalo (evita rarezas)
+        if (map.pm.globalRemovalEnabled && map.pm.globalRemovalEnabled()) {
+          map.pm.disableGlobalRemovalMode();
         }
 
-         
-        if(!fc.features.length){ alert('Dibuja algo antes de guardar'); return; }
+        // === SOLO GUARDAR LA ÚLTIMA GEOMETRÍA VISIBLE ===
+        var latest = null;
+        drawn.eachLayer(function(l){
+          if (map.hasLayer(l)) latest = l; // la última iterada es la más reciente visible
+        });
+        if (!latest) { alert('Dibuja algo antes de guardar'); return; }
+
+        var fc = {
+          type: 'FeatureCollection',
+          features: [ latest.toGeoJSON() ]
+        };
+        // ================================================
+
         showSelectDialog('IDENTIFIQUESE', ['PDTI-Manio','PDT1-Nahuelbuta','PDTI-IMP_CEN_1','PDTI-IMP_CEN_2','PDTI-Boroa','PRODER','CAMINOS'])
         .then(function(quien){
           return showSelectDialog('TIPO', ['Planificado','Ejecutado']).then(function(tipo){
@@ -234,29 +239,29 @@ function initGoogle(){
         })
         .then(function(sel){
           return fetch(
-  cfg.SCRIPT_URL + (idToken ? ('&id_token=' + encodeURIComponent(idToken)) : ''),
-  {
-    method:'POST',
-    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      featureCollection: fc,
-      attributes: {
-        identificacion: sel.quien,
-        tipo: sel.tipo,
-        dispositivo: navigator.userAgent,
-        enviado_en: new Date().toISOString()
-      }
-    })
-  }
-).then(function(resp){
-  return resp.text().then(function(text){ return {ok: resp.ok, text: text}; });
-});
-
+            cfg.SCRIPT_URL + (idToken ? ('&id_token=' + encodeURIComponent(idToken)) : ''),
+            {
+              method:'POST',
+              headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+              body: JSON.stringify({
+                featureCollection: fc,
+                attributes: {
+                  identificacion: sel.quien,
+                  tipo: sel.tipo,
+                  dispositivo: navigator.userAgent,
+                  enviado_en: new Date().toISOString()
+                }
+              })
+            }
+          ).then(function(resp){
+            return resp.text().then(function(text){ return {ok: resp.ok, text: text}; });
+          });
         })
         .then(function(r){
           if(!r.ok) throw new Error(r.text || 'Error desconocido');
           alert('Enviado');
           drawn.clearLayers();
+          lastDrawn = null;
           cargarReportes();
         })
         .catch(function(err){
@@ -271,7 +276,7 @@ function initGoogle(){
       return d;
     }; btnSave.addTo(map);
 
-    // 4) Boton Refrescar
+    // 4) Botón Refrescar
     var btnRef = L.control({position:'bottomleft'});
     btnRef.onAdd = function(){
       var d = L.DomUtil.create('div','leaflet-bar');
@@ -280,7 +285,7 @@ function initGoogle(){
       return d;
     }; btnRef.addTo(map);
 
-    // 5) Boton Ver (mostrar/ocultar)
+    // 5) Botón Ver (mostrar/ocultar)
     var btnTog = L.control({position:'bottomleft'});
     btnTog.onAdd = function(){
       var d = L.DomUtil.create('div','leaflet-bar');
@@ -293,7 +298,7 @@ function initGoogle(){
       return d;
     }; btnTog.addTo(map);
 
-    // 6) Boton Borrar (toggle)
+    // 6) Botón Borrar (toggle)
     var removeActive = false;
     var btnDel = L.control({position:'bottomleft'});
     btnDel.onAdd = function(){
@@ -308,7 +313,7 @@ function initGoogle(){
       return d;
     }; btnDel.addTo(map);
 
-    // 7) Boton GPS
+    // 7) Botón GPS
     var gpsMarker = null, gpsCircle = null;
     var btnGPS = L.control({position:'topleft'});
     btnGPS.onAdd = function(){
@@ -330,27 +335,21 @@ function initGoogle(){
       });
       return d;
     }; btnGPS.addTo(map);
+
+    // 8) Botón Entrar (login) - opcional, por si activas RESTRICT=true en el backend
+    var btnLogin = L.control({position:'bottomleft'});
+    btnLogin.onAdd = function(){
+      var d = L.DomUtil.create('div','leaflet-bar');
+      var a = L.DomUtil.create('a','neutral',d); a.href='#'; a.title='Entrar'; a.textContent='Entrar';
+      L.DomEvent.on(a,'click', function(ev){
+        L.DomEvent.stop(ev);
+        if (!initGoogle()){
+          alert('Cargando modulo de Google... intenta de nuevo en 2 segundos.');
+          return;
+        }
+        google.accounts.id.prompt(); // abre el flujo; al terminar rellena idToken
+      });
+      return d;
+    }; btnLogin.addTo(map);
   };
 })();
-
-// Boton Entrar (login) - opcional, aparece por si el servidor lo exige
-var btnLogin = L.control({position:'bottomleft'});
-btnLogin.onAdd = function(){
-  var d = L.DomUtil.create('div','leaflet-bar');
-  var a = L.DomUtil.create('a','neutral',d); a.href='#'; a.title='Entrar'; a.textContent='Entrar';
-  L.DomEvent.on(a,'click', function(ev){
-    L.DomEvent.stop(ev);
-    if (!initGoogle()){
-      alert('Cargando modulo de Google... intenta de nuevo en 2 segundos.');
-      return;
-    }
-    // muestra el prompt de Google (one-tap/popup)
-    google.accounts.id.prompt(); // esto abre el flujo de login; al terminar rellena idToken
-  });
-  return d;
-}; btnLogin.addTo(map);
-
-
-
-
-
