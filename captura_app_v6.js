@@ -68,24 +68,37 @@ function initGoogle(){
     });
     map.pm.setGlobalOptions({ snappable:true, snapDistance:15, allowSelfIntersection:false });
 
+    // === SINCRONIZACIÓN DE DIBUJO/BORRADO (reemplaza tus handlers actuales) ===
+    var lastDrawn = null;
 
-    // Solo una geometría a la vez: al crear, borra lo anterior y registra la última
+    // Al crear: una geometría por envío
     map.on('pm:create', function(e){
       drawn.clearLayers();
       lastDrawn = e.layer;
       drawn.addLayer(lastDrawn);
     });
 
-    // Si se borra con la papelera, sincroniza el grupo y anula lastDrawn si corresponde
+    // Si se borra con la papelera de Geoman
     map.on('pm:remove', function(e){
-      if (drawn.hasLayer(e.layer)) {
-        drawn.removeLayer(e.layer);
-      }
-      if (lastDrawn === e.layer) {
-        lastDrawn = null;
+      if (drawn.hasLayer(e.layer)) drawn.removeLayer(e.layer);
+      if (lastDrawn === e.layer)   lastDrawn = null;
+    });
+
+    // Si por cualquier motivo se quitara una capa del featureGroup
+    drawn.on('layerremove', function(e){
+      if (lastDrawn === e.layer) lastDrawn = null;
+    });
+
+    // Cuando se apaga/enciende el modo borrado global, al APAGARSE barremos fantasmas
+    map.on('pm:globalremovalmodetoggled', function(e){
+      if (!e.enabled){
+        // limpiamos "drawn" de cualquier cosa que ya no está en el mapa
+        drawn.eachLayer(function(l){ if (!map.hasLayer(l)) drawn.removeLayer(l); });
+        if (lastDrawn && !map.hasLayer(lastDrawn)) lastDrawn = null;
       }
     });
 
+    
     // 2) Overlay de reportes + filtros
     var PLAN_COLOR = '#f59e0b', EJEC_COLOR = '#16a34a', UNK_COLOR = '#6d28d9';
     var reportesLayer = L.layerGroup().addTo(map);
@@ -206,13 +219,12 @@ function initGoogle(){
         if (lastDrawn && map.hasLayer(lastDrawn)) {
           fc = { type:'FeatureCollection', features: [ lastDrawn.toGeoJSON() ] };
         } else {
-          // Fallback defensivo: por si algo quedó en drawn y sigue visible
           var layers = [];
           drawn.eachLayer(function(l){ if (map.hasLayer(l)) layers.push(l); });
           fc = { type:'FeatureCollection', features: layers.map(function(l){ return l.toGeoJSON(); }) };
         }
 
-           
+         
         if(!fc.features.length){ alert('Dibuja algo antes de guardar'); return; }
         showSelectDialog('IDENTIFIQUESE', ['PDTI-Manio','PDT1-Nahuelbuta','PDTI-IMP_CEN_1','PDTI-IMP_CEN_2','PDTI-Boroa','PRODER','CAMINOS'])
         .then(function(quien){
@@ -337,6 +349,7 @@ btnLogin.onAdd = function(){
   });
   return d;
 }; btnLogin.addTo(map);
+
 
 
 
