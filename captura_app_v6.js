@@ -1,4 +1,4 @@
-  // ================= Google Identity (preparado para futuro) =================
+// ================= Google Identity (preparado para futuro) =================
 (function loadGIS(){
   var s = document.createElement('script');
   s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
@@ -26,35 +26,6 @@ function initGoogle(){
   }
   function norm(s){ return (s||"").toString().trim().toLowerCase(); }
 
-// === Utilidades de medición y vista ===
-function formatLength(m){
-  if (!isFinite(m) || m <= 0) return '0 m';
-  if (m < 1000) return Math.round(m) + ' m';
-  return (m/1000).toFixed(2) + ' km';
-}
-function flattenLatLngs(latlngs){
-  // Geoman/Leaflet puede anidar arreglos: [ [LatLng, ...] ]
-  if (Array.isArray(latlngs) && Array.isArray(latlngs[0])) return latlngs.flat();
-  return latlngs || [];
-}
-function polylineLengthMeters(layer){
-  if (!layer || typeof layer.getLatLngs !== 'function') return 0;
-  var pts = flattenLatLngs(layer.getLatLngs());
-  var total = 0;
-  for (var i=0;i<pts.length-1;i++){ total += pts[i].distanceTo(pts[i+1]); }
-  return total;
-}
-function lastLatLngOf(layer){
-  if (!layer || typeof layer.getLatLngs !== 'function') return null;
-  var pts = flattenLatLngs(layer.getLatLngs());
-  return pts.length ? pts[pts.length-1] : null;
-}
-function panIfOut(map, latlng){
-  if (!latlng) return;
-  var padBounds = map.getBounds().pad(0.08);
-  if (!padBounds.contains(latlng)) map.panTo(latlng);
-}
-  
   // R llama window.capturaAppInit(this);
   window.capturaAppInit = function(map){
     var cfg  = getCfg();
@@ -92,74 +63,6 @@ function panIfOut(map, latlng){
       editMode:true, removalMode:true
     });
     map.pm.setGlobalOptions({ snappable:true, snapDistance:15, allowSelfIntersection:false });
-
-    // === Control de medición en vivo ===
-    var measureCtl = L.control({position:'bottomright'});
-    measureCtl.onAdd = function(){
-      var d = L.DomUtil.create('div','measure-box');
-      // Estilo inline para no tocar CSS en otro archivo
-      d.style.background = 'white';
-      d.style.padding = '6px 8px';
-      d.style.fontSize = '12px';
-      d.style.borderRadius = '6px';
-      d.style.boxShadow = '0 1px 4px rgba(0,0,0,.2)';
-      d.style.display = 'none';
-      d.textContent = 'Longitud: 0 m';
-      return d;
-    };
-    measureCtl.addTo(map);
-    var measureDiv = measureCtl.getContainer();
-    function showMeasure(text){ measureDiv.style.display='block'; measureDiv.textContent = 'Longitud: ' + text; }
-    function hideMeasure(){ measureDiv.style.display='none'; }
-    function updateMeasureFromLayer(layer){
-      var m = polylineLengthMeters(layer);
-      showMeasure(formatLength(m));
-    }
-
-    
-    // Capa en edición mientras dibujas (la "working layer" de Geoman)
-    var drawingLayer = null;
-
-    // Al empezar a dibujar
-    map.on('pm:drawstart', function(e){
-      drawingLayer = null;
-      // Mostramos el medidor solo para líneas
-      var shape = (e && e.shape) || '';
-      if (shape.toLowerCase().includes('line')) {
-        showMeasure('0 m');
-      } else {
-        hideMeasure();
-      }
-    });
-
-    // Cada vez que agregas un vértice (nodo) en el dibujo
-    map.on('pm:vertexadded', function(e){
-      drawingLayer = e.layer || drawingLayer;
-      if (drawingLayer && typeof drawingLayer.getLatLngs === 'function'){
-        updateMeasureFromLayer(drawingLayer);
-        panIfOut(map, lastLatLngOf(drawingLayer));
-      }
-    });
-
-    // Mientras arrastras un vértice durante el dibujo o edición
-    map.on('pm:markerdrag', function(e){
-      var lyr = (e && e.layer) || drawingLayer || null;
-      if (lyr && typeof lyr.getLatLngs === 'function'){
-        updateMeasureFromLayer(lyr);
-      }
-    });
-    map.on('pm:markerdragend', function(e){
-      var lyr = (e && e.layer) || drawingLayer || null;
-      if (lyr && typeof lyr.getLatLngs === 'function'){
-        panIfOut(map, lastLatLngOf(lyr));
-      }
-    });
-
-    // Al terminar el dibujo
-    map.on('pm:drawend', function(){
-      hideMeasure();
-      drawingLayer = null;
-    });
 
     // Cuando el usuario comienza a dibujar una nueva geometría,
     // limpiamos cualquier resto anterior (evita que A se mezcle con B)
@@ -218,22 +121,12 @@ function panIfOut(map, latlng){
       return L.circleMarker(latlng, { radius:6, fillOpacity:0.85, color:c });
     }
     function popupHtml(l){
-      var p  = (l && l.feature && l.feature.properties) || {};
+      var p  = l.feature.properties || {};
       var ts = p.ts ? new Date(p.ts).toLocaleString() : '';
-
-      // Longitud: preferir lo guardado; si no hay, calcular al vuelo
-      var lenm = (typeof p.length_m === 'number' && isFinite(p.length_m)) ? p.length_m : 0;
-      if (!lenm && l && typeof l.getLatLngs === 'function'){
-        lenm = Math.round(polylineLengthMeters(l));
-      }
-      var lenTxt = lenm ? formatLength(lenm) : '—';
-
       return '<b>Fecha creacion:</b> '+ ts +
              '<br/><b>Identificador:</b> ' + (p.identificacion||'(vacio)') +
-             '<br/><b>Tipo:</b> ' + (p.tipo||'(vacio)') +
-             '<br/><b>Longitud:</b> ' + lenTxt;
+             '<br/><b>Tipo:</b> ' + (p.tipo||'(vacio)');
     }
-
     function renderReportes(){
       reportesLayer.clearLayers();
       if(!geoCache) return;
@@ -333,33 +226,17 @@ function panIfOut(map, latlng){
           map.pm.disableGlobalRemovalMode();
         }
 
-       // === SOLO GUARDAR LA ÚLTIMA GEOMETRÍA (con longitud en properties) ===
-      if (!lastDrawn || !map.hasLayer(lastDrawn)) {
-        alert('Dibuja algo antes de guardar');
-        return;
-      }
+        // === SOLO GUARDAR LA ÚLTIMA GEOMETRÍA (sin recorrer grupos) ===
+        if (!lastDrawn || !map.hasLayer(lastDrawn)) {
+          alert('Dibuja algo antes de guardar');
+          return;
+        }
 
-      // GeoJSON de la capa
-      var feat = lastDrawn.toGeoJSON();
-
-      // Calcular longitud solo si es línea (para puntos quedará 0)
-      var lenm = 0;
-      if (typeof lastDrawn.getLatLngs === 'function') {
-        lenm = Math.round(polylineLengthMeters(lastDrawn)); // usa la utilidad del PASO 1
-      }
-
-      // Adjuntar a properties sin romper lo existente
-      feat.properties = Object.assign({}, feat.properties || {}, {
-        length_m: lenm,
-        length_km: +(lenm / 1000).toFixed(3)
-      });
-
-      var fc = {
-        type: 'FeatureCollection',
-        features: [ feat ]
-      };
-      // ======================================================================
-
+        var fc = {
+          type: 'FeatureCollection',
+          features: [ lastDrawn.toGeoJSON() ]
+        };
+// ===============================================================
 
 
         showSelectDialog('IDENTIFIQUESE', ['PDTI-Manio','PDT1-Nahuelbuta','PDTI-IMP_CEN_1','PDTI-IMP_CEN_2','PDTI-Boroa','PRODER','CAMINOS'])
@@ -484,6 +361,5 @@ function panIfOut(map, latlng){
     }; btnLogin.addTo(map);
   };
 })();
-
 
 
